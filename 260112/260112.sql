@@ -45,6 +45,6 @@ VALUES
 
 -- SELECT Position, SUM(Salary) AS TotalSalary FROM Employees GROUP BY Position;
 
-UPDATE Employees SET Salary = Salary * 1.1 WHERE Position = '개발자';
+UPDATE Employees SET Salary = Salary * 1.1 WHERE Position = '개발자';     
 
 SELECT * FROM Employees;
