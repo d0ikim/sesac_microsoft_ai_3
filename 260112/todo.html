@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Todo</title>
+    <script>
+      // 여기에 JavaScript 코드 작성
+
+      function fetchTodos() {
+        // 할일 목록을 서버에서 가져와서 화면에 표시하는 코드 작성
+        // http://localhost:8000/todos 에 GET 요청 보내기
+        fetch('http://localhost:8000/todos')
+          .then((response) => response.json())
+          .then((data) => {
+            const todoList = document.getElementById('todo_list');
+            todoList.innerHTML = ''; // 기존 목록 초기화
+            data.forEach((todo) => {
+              const li = document.createElement('li');
+              li.innerHTML =
+                todo.title +
+                '<button onclick="completeTodo(' +
+                todo.id +
+                ')">완료</button><button onclick="deleteTodo(' +
+                todo.id +
+                ')">삭제</button>';
+              todoList.appendChild(li);
+            });
+            console.table(data);
+          });
+      }
+
+      function completeTodo() {
+        const id = document.getElementById('id');
+        // 서버에 할일 완료 요청 보내기
+        fetch('http://localhost:8000/todos/' + id + '/toggle', {
+          method: 'PATCH',
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error('할일 완료 실패');
+            }
+            return response.json();
+          })
+          .then(() => {
+            fetchTodos(); // completed 변경 후 목록 갱신
+          })
+          .catch((error) => {
+            console.error('에러 발생:', error);
+          });
+      }
+
+      function addTodo() {
+        const input = document.getElementById('title');
+        const title = input.value;
+        if (title.trim() == '') {
+          alert('할일을 입력하세요');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('title', title);
+
+        // 서버에 새로운 할일 추가 요청 보내기
+        fetch('http://localhost:8000/todos?title=' + title, {
+          method: 'POST',
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error('할일 추가 실패');
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log('추가된 할일:', data);
+            input.value = ''; // 입력창 초기화
+            fetchTodos(); // 할일 목록 갱신
+          })
+          .catch((error) => {
+            console.error('에러 발생:', error);
+          });
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        fetchTodos(); // 페이지 로드 시 할일 목록 가져오기
+      });
+    </script>
+  </head>
+  <body>
+    <h1>Todo</h1>
+    <!-- 입력폼 -->
+    <input type="text" name="title" id="title" />
+    <button onclick="addTodo()">추가</button>
+
+    <!-- 할일리스트 -->
+    <ul id="todo_list">
+      <!-- <li>할일1</li>
+            <li>할일2</li>
+            <li>할일3</li>
+            <li>할일4</li> -->
+    </ul>
+  </body>
+</html>
