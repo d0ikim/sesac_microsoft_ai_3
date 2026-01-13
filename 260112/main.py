@@ -54,6 +54,7 @@ def get_todo(id: int):
     return {"error": "찾을 수 없습니다."}, 404
  
 ## todo create - post /todos
+
 @app.post("/todos")
 def create_todo(title: str):
     conn = get_conn()
@@ -64,6 +65,7 @@ def create_todo(title: str):
     conn.close()
     return {"id": todo_id, "title": title}
  
+
 ## todo delete  delete /todos/{id}
 @app.delete("/todos/{id}")
 def delete_todo(id: int):

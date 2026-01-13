@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mood CRUD SPA</title>
+
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR',
+          sans-serif;
+        max-width: 720px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 12px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .moods button {
+        border: 1px solid #d1d5db;
+        background: #fff;
+        border-radius: 10px;
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+      .moods button.active {
+        border-color: #111827;
+      }
+      input[type='text'] {
+        flex: 1;
+        min-width: 220px;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+      }
+      .primary {
+        background: #111827;
+        color: #fff;
+        border: 1px solid #111827;
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+      .ghost {
+        background: #fff;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      li {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f3f4f6;
+      }
+      .meta {
+        color: #6b7280;
+        font-size: 12px;
+      }
+      .error {
+        color: #dc2626;
+      }
+      .muted {
+        color: #6b7280;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+      }
+      .actions button {
+        margin-left: 6px;
+      }
+      .editRow {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .small {
+        padding: 6px 10px;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>기분 기록 CRUD (SPA) 🙂</h1>
+    <p class="muted">한 페이지에서 생성/조회/수정/삭제가 바로 반영됩니다.</p>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const API_BASE = 'http://localhost:7000';
+      const MOODS = ['🙂', '😐', '😡', '😴'];
+
+      async function apiFetch(path, options = {}) {
+        const res = await fetch(`${API_BASE}${path}`, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(options.headers || {}),
+          },
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status} ${text}`);
+        }
+
+        // DELETE는 보통 JSON을 안 줄 수도 있으니 방어
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) return res.json();
+        return null;
+      }
+
+      function App() {
+        const [todos, setTodos] = React.useState([]); // moods 목록
+        const [selectedMood, setSelectedMood] = React.useState('🙂');
+        const [memo, setMemo] = React.useState('');
+        const [error, setError] = React.useState('');
+        const [loading, setLoading] = React.useState(false);
+
+        const [editingId, setEditingId] = React.useState(null);
+        const [editMood, setEditMood] = React.useState('🙂');
+        const [editMemo, setEditMemo] = React.useState('');
+
+        async function loadMoods() {
+          try {
+            setLoading(true);
+            const data = await apiFetch('/moods');
+            setTodos(data);
+            setError('');
+          } catch (e) {
+            setError(e.message);
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        React.useEffect(() => {
+          loadMoods();
+        }, []);
+
+        async function createMood() {
+          const trimmed = memo.trim();
+          if (!trimmed) {
+            alert('메모를 입력해주세요');
+            return;
+          }
+
+          try {
+            setLoading(true);
+            const created = await apiFetch('/moods', {
+              method: 'POST',
+              body: JSON.stringify({ mood: selectedMood, memo: trimmed }),
+            });
+
+            // 즉시 반영 (SPA 느낌)
+            setTodos((prev) => [created, ...prev]);
+            setMemo('');
+            setError('');
+          } catch (e) {
+            setError(e.message);
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        function startEdit(item) {
+          setEditingId(item.id);
+          setEditMood(item.mood);
+          setEditMemo(item.memo);
+        }
+
+        function cancelEdit() {
+          setEditingId(null);
+          setEditMood('🙂');
+          setEditMemo('');
+        }
+
+        async function saveEdit(id) {
+          const trimmed = editMemo.trim();
+          if (!trimmed) {
+            alert('메모를 입력해주세요');
+            return;
+          }
+
+          try {
+            setLoading(true);
+            const updated = await apiFetch(`/moods/${id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ mood: editMood, memo: trimmed }),
+            });
+
+            setTodos((prev) => prev.map((x) => (x.id === id ? updated : x)));
+            cancelEdit();
+            setError('');
+          } catch (e) {
+            setError(e.message);
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        async function removeItem(id) {
+          const ok = confirm('삭제할까요?');
+          if (!ok) return;
+
+          try {
+            setLoading(true);
+            await apiFetch(`/moods/${id}`, { method: 'DELETE' });
+            setTodos((prev) => prev.filter((x) => x.id !== id));
+            if (editingId === id) cancelEdit();
+            setError('');
+          } catch (e) {
+            setError(e.message);
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        return (
+          <div className="card">
+            <div className="row moods">
+              <span className="pill">기분 선택</span>
+              {MOODS.map((m) => (
+                <button
+                  key={m}
+                  className={m === selectedMood ? 'active' : ''}
+                  onClick={() => setSelectedMood(m)}
+                  type="button"
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <input
+                type="text"
+                placeholder="한 줄 메모 (예: 오늘 과제 1시간 컷)"
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') createMood();
+                }}
+              />
+              <button
+                className="primary"
+                onClick={createMood}
+                disabled={loading}
+                type="button"
+              >
+                추가
+              </button>
+              <button
+                className="ghost"
+                onClick={loadMoods}
+                disabled={loading}
+                type="button"
+              >
+                새로고침
+              </button>
+            </div>
+
+            {error && (
+              <p className="error" style={{ marginTop: 10 }}>
+                {error}
+              </p>
+            )}
+            {loading && (
+              <p className="muted" style={{ marginTop: 10 }}>
+                로딩 중...
+              </p>
+            )}
+
+            <div style={{ marginTop: 14 }}>
+              <p className="muted">총 {todos.length}개</p>
+              <ul>
+                {todos.map((item) => (
+                  <li key={item.id}>
+                    <div style={{ flex: 1 }}>
+                      {editingId === item.id ? (
+                        <div className="editRow">
+                          <div className="row moods">
+                            {MOODS.map((m) => (
+                              <button
+                                key={m}
+                                className={m === editMood ? 'active' : ''}
+                                onClick={() => setEditMood(m)}
+                                type="button"
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+
+                          <input
+                            type="text"
+                            value={editMemo}
+                            onChange={(e) => setEditMemo(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveEdit(item.id);
+                            }}
+                          />
+
+                          <div className="actions">
+                            <button
+                              className="primary small"
+                              onClick={() => saveEdit(item.id)}
+                              disabled={loading}
+                              type="button"
+                            >
+                              저장
+                            </button>
+                            <button
+                              className="ghost small"
+                              onClick={cancelEdit}
+                              disabled={loading}
+                              type="button"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="row">
+                            <span className="pill">{item.mood}</span>
+                            <strong>{item.memo}</strong>
+                          </div>
+                          <div className="meta">
+                            created_at: {item.created_at}
+                            {item.updated_at
+                              ? ` / updated_at: ${item.updated_at}`
+                              : ''}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {editingId !== item.id && (
+                      <div className="actions">
+                        <button
+                          className="ghost small"
+                          onClick={() => startEdit(item)}
+                          disabled={loading}
+                          type="button"
+                        >
+                          수정
+                        </button>
+                        <button
+                          className="ghost small"
+                          onClick={() => removeItem(item.id)}
+                          disabled={loading}
+                          type="button"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
